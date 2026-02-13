@@ -28,7 +28,7 @@ if st.button("Submit"):
             if os.path.exists(output_zip): os.remove(output_zip)
 
             # Program 2 Requirement: Use the Mashup logic 
-            script_path = os.path.join(os.getcwd(), "mashup.py")
+            script_path = os.path.join(os.getcwd(), "102303993.py")
             process = subprocess.run([
                 sys.executable, script_path, 
                 singer, str(n_videos), str(duration), output_mp3
