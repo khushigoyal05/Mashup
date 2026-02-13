@@ -1,53 +1,50 @@
 import streamlit as st
 import os
 import zipfile
-import smtplib
-from email.message import EmailMessage
 import subprocess
+import sys
 
 st.set_page_config(page_title="Mashup Web Service", page_icon="🎵")
 
 st.title("🎵 Mashup Web Service")
-st.markdown("Enter details to create and receive your custom audio mashup.")
+st.write("Enter details to create and receive your custom audio mashup.")
 
-# Input fields as per Program 2 requirements
-singer = st.text_input("Singer Name", placeholder="e.g. Sharry Maan")
+# Inputs [cite: 30, 32, 34, 35]
+singer = st.text_input("Singer Name", value="Sharry Maan")
 n_videos = st.number_input("# of videos (Must be > 10)", min_value=1, value=20)
 duration = st.number_input("Duration of each video (sec) (Must be > 20)", min_value=1, value=30)
-email_id = st.text_input("Email Id", placeholder="yourname@gmail.com")
+email_id = st.text_input("Email Id")
 
 if st.button("Submit"):
-    # Basic Validation
-    if not singer or not email_id:
-        st.error("Please fill in all fields.")
+    if not singer or not email_id or "@" not in email_id:
+        st.error("Please provide valid inputs and a correct email.")
     elif n_videos <= 10 or duration <= 20:
-        st.error("Constraints: Videos > 10 and Duration > 20.")
-    elif "@" not in email_id:
-        st.error("Please provide a valid email address.")
+        st.error("Constraint Violation: Videos must be > 10 and Duration > 20.")
     else:
-        with st.spinner("Processing your mashup... this involves downloading and merging audio."):
+        with st.spinner("Creating Mashup..."):
             output_mp3 = "result.mp3"
             output_zip = "result.zip"
             
-            # Using subprocess to run your Program 1 script (102303993.py)
-            try:
-                # Command format: python <program.py> <SingerName> <NumberOfVideos> <AudioDuration> <OutputFileName>
-                subprocess.run([
-                    "python", "102303993.py", 
-                    singer, str(n_videos), str(duration), output_mp3
-                ], check=True)
-                
-                # Create the Zip file as required
+            # Using sys.executable to ensure the correct python path on Cloud
+            python_path = sys.executable
+            script_path = os.path.join(os.getcwd(), "102303993.py")
+
+            # Run Program 1 [cite: 12]
+            process = subprocess.run([
+                python_path, script_path, 
+                singer, str(n_videos), str(duration), output_mp3
+            ], capture_output=True, text=True)
+
+            if process.returncode != 0:
+                st.error(f"Execution Error: {process.stderr}")
+            else:
+                # Zip the result [cite: 39]
                 with zipfile.ZipFile(output_zip, 'w') as zipf:
                     zipf.write(output_mp3)
                 
-                st.success(f"Success! Mashup created for {singer}.")
+                st.success(f"Mashup for {singer} is ready!")
                 
-                # Manual download button (since Email SMTP requires private credentials)
                 with open(output_zip, "rb") as f:
                     st.download_button("Download Zip File", f, file_name=output_zip)
                 
-                st.info("Assignment Note: To send the email automatically, an SMTP server must be configured.")
-                
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+                st.info(f"The result is ready for {email_id}. (SMTP configuration needed for auto-email)")
