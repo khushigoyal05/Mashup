@@ -10,7 +10,7 @@ def create_mashup(singer, n, duration, output_file):
         shutil.rmtree(download_dir)
     os.makedirs(download_dir)
 
-    # Assignment Requirement: Use pypi.org for downloading
+    # yt-dlp options with a browser-like user agent to mitigate 403 errors
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
@@ -26,25 +26,25 @@ def create_mashup(singer, n, duration, output_file):
         'max_downloads': n,
     }
 
+    # Task: Download N videos of X singer [cite: 18, 19]
     with YoutubeDL(ydl_opts) as ydl:
         try:
-            # Task: Download N videos of X singer
             ydl.download([f"ytsearch{n}:{singer} song"])
         except Exception:
             pass 
 
-    # Task: Merge all audios to make a single output file
+    # Task: Merge all audios to make a single output file [cite: 22]
     combined = AudioSegment.empty()
     files = sorted([f for f in os.listdir(download_dir) if f.endswith('.mp3')])
     
     if not files:
-        # Requirement: Show appropriate message for wrong inputs or errors
-        raise Exception("YouTube blocked the cloud request. Try again or check your internet.")
+        # Task: Show appropriate message for errors 
+        raise Exception("YouTube blocked the request. This is common on cloud servers.")
 
     for file in files[:n]:
         path = os.path.join(download_dir, file)
         try:
-            # Task: Cut first Y sec audios
+            # Task: Cut first Y sec audios [cite: 21]
             audio = AudioSegment.from_file(path)
             cut_audio = audio[:duration * 1000] 
             combined += cut_audio
@@ -54,7 +54,7 @@ def create_mashup(singer, n, duration, output_file):
     combined.export(output_file, format="mp3")
 
 if __name__ == "__main__":
-    # Requirement: Correct number of parameters
+    # Task: Check for correct number of parameters [cite: 25, 26]
     if len(sys.argv) != 5:
         print("Usage: python 102303993.py <SingerName> <NumberOfVideos> <AudioDuration> <OutputFileName>")
         sys.exit(1)
@@ -65,14 +65,14 @@ if __name__ == "__main__":
         audio_dur = int(sys.argv[3])
         out_name = sys.argv[4]
 
-        # Requirement: N > 10 and Y > 20
+        # Constraints: N > 10 and Y > 20 [cite: 18, 21]
         if num_videos <= 10 or audio_dur <= 20:
-            print("Error: Number of videos must be > 10 and duration > 20.")
+            print("Error: N must be > 10 and Y must be > 20.")
             sys.exit(1)
 
         create_mashup(singer_name, num_videos, audio_dur, out_name)
 
     except Exception as e:
-        # Requirement: Handling of exception
-        print(f"Error: {e}")
+        # Task: Handling of exception [cite: 28]
+        print(f"An error occurred: {e}")
         sys.exit(1)
