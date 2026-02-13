@@ -5,56 +5,62 @@ from yt_dlp import YoutubeDL
 from pydub import AudioSegment
 
 def create_mashup(singer, n, duration, output_file):
-    # Create or clear downloads folder
-    if os.path.exists('downloads'):
-        shutil.rmtree('downloads')
-    os.makedirs('downloads')
+    # Set up a clean downloads directory
+    download_dir = os.path.join(os.getcwd(), 'downloads')
+    if os.path.exists(download_dir):
+        shutil.rmtree(download_dir)
+    os.makedirs(download_dir)
 
-    # 1. Search and Download
+    # 1. Download Options
     ydl_opts = {
-        'format': 'bestaudio/best/best',
+        'format': 'bestaudio/best',
+        # User agent helps avoid being blocked by YouTube on cloud servers
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
+        'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
         'max_downloads': n,
-        'quiet': False,  # Changed to False so we see progress
+        'quiet': True,
+        'no_warnings': True,
     }
 
-    print(f"--- Step 1: Searching for {singer} ---")
+    # 2. Search and Download
+    print(f"Searching and downloading {n} videos for {singer}...")
     with YoutubeDL(ydl_opts) as ydl:
         try:
-            # Using ytsearch leads to better results
             ydl.download([f"ytsearch{n}:{singer} audio"])
-        except Exception as e:
-            print(f"Download break (Expected or Error): {e}")
+        except Exception:
+            # yt-dlp raises an error when max_downloads is hit; we catch it to continue
+            pass
 
-    # 2. Process and Merge
+    # 3. Process and Merge
     combined = AudioSegment.empty()
-    files = [f for f in os.listdir('downloads') if f.endswith('.mp3')]
+    files = sorted([f for f in os.listdir(download_dir) if f.endswith('.mp3')])
     
-    print(f"--- Step 2: Found {len(files)} files. Starting Trim ---")
-    
-    if len(files) == 0:
-        print("Error: No files found in downloads folder!")
-        return
+    if not files:
+        print("Error: No audio files were downloaded.")
+        sys.exit(1)
 
-    for i, file in enumerate(files[:n]):
-        path = os.path.join('downloads', file)
-        print(f"Processing file {i+1}: {file}")
-        audio = AudioSegment.from_file(path)
-        cut_audio = audio[:duration * 1000]
-        combined += cut_audio
+    print(f"Trimming first {duration} seconds and merging...")
+    for file in files[:n]:
+        path = os.path.join(download_dir, file)
+        try:
+            audio = AudioSegment.from_file(path)
+            # Cut first Y seconds (duration * 1000 for milliseconds)
+            cut_audio = audio[:duration * 1000]
+            combined += cut_audio
+        except Exception as e:
+            print(f"Skipping {file} due to error: {e}")
     
-    # 3. Export
-    print(f"--- Step 3: Exporting to {output_file} ---")
+    # 4. Export final result
     combined.export(output_file, format="mp3")
-    print("--- SUCCESS: Mashup Complete ---")
+    print(f"SUCCESS: Mashup saved as {output_file}")
 
 if __name__ == "__main__":
-    # Validate parameters [cite: 25, 26]
+    # Check for correct number of parameters
     if len(sys.argv) != 5:
         print("Usage: python 102303993.py <SingerName> <NumberOfVideos> <AudioDuration> <OutputFileName>")
         sys.exit(1)
@@ -65,15 +71,17 @@ if __name__ == "__main__":
         audio_dur = int(sys.argv[3])
         out_name = sys.argv[4]
 
-        # Assignment constraints [cite: 18, 21]
+        # Validating assignment constraints
         if num_videos <= 10:
-            print("Error: Number of videos must be greater than 10.") [cite: 27]
+            print("Error: Number of videos (N) must be greater than 10.")
             sys.exit(1)
         if audio_dur <= 20:
-            print("Error: Audio duration must be greater than 20.") [cite: 27]
+            print("Error: Audio duration (Y) must be greater than 20.")
             sys.exit(1)
 
         create_mashup(singer_name, num_videos, audio_dur, out_name)
 
+    except ValueError:
+        print("Error: Number of videos and Duration must be integers.")
     except Exception as e:
-        print(f"Main Error: {e}") [cite: 28]
+        print(f"An unexpected error occurred: {e}")
