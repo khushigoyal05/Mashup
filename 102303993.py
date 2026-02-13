@@ -5,64 +5,60 @@ from yt_dlp import YoutubeDL
 from pydub import AudioSegment
 
 def create_mashup(singer, n, duration, output_file):
-    # Set up a clean downloads directory
-    download_dir = os.path.join(os.getcwd(), 'downloads')
+    download_dir = 'downloads'
     if os.path.exists(download_dir):
         shutil.rmtree(download_dir)
     os.makedirs(download_dir)
 
-    # 1. Download Options
+    # 1. Improved Download Options to bypass 403 Forbidden
     ydl_opts = {
         'format': 'bestaudio/best',
-        # User agent helps avoid being blocked by YouTube on cloud servers
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        # Helps bypass bot detection
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'referer': 'https://www.google.com/',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+        'outtmpl': f'{download_dir}/%(title)s.%(ext)s',
         'max_downloads': n,
         'quiet': True,
         'no_warnings': True,
     }
 
     # 2. Search and Download
-    print(f"Searching and downloading {n} videos for {singer}...")
     with YoutubeDL(ydl_opts) as ydl:
         try:
-            ydl.download([f"ytsearch{n}:{singer} audio"])
+            # Adding "songs" to query often yields better results for singers
+            ydl.download([f"ytsearch{n}:{singer} songs"])
         except Exception:
-            # yt-dlp raises an error when max_downloads is hit; we catch it to continue
-            pass
+            pass 
 
     # 3. Process and Merge
     combined = AudioSegment.empty()
     files = sorted([f for f in os.listdir(download_dir) if f.endswith('.mp3')])
     
     if not files:
-        print("Error: No audio files were downloaded.")
-        sys.exit(1)
+        raise Exception("No audio files were downloaded. YouTube might be blocking the request.")
 
-    print(f"Trimming first {duration} seconds and merging...")
+    # Only process up to N files
     for file in files[:n]:
         path = os.path.join(download_dir, file)
         try:
             audio = AudioSegment.from_file(path)
-            # Cut first Y seconds (duration * 1000 for milliseconds)
+            # Y seconds cut
             cut_audio = audio[:duration * 1000]
             combined += cut_audio
-        except Exception as e:
-            print(f"Skipping {file} due to error: {e}")
+        except Exception:
+            continue
     
-    # 4. Export final result
+    # 4. Export
     combined.export(output_file, format="mp3")
-    print(f"SUCCESS: Mashup saved as {output_file}")
 
 if __name__ == "__main__":
-    # Check for correct number of parameters
+    # Parameters check per assignment [cite: 12, 24]
     if len(sys.argv) != 5:
-        print("Usage: python 102303993.py <SingerName> <NumberOfVideos> <AudioDuration> <OutputFileName>")
         sys.exit(1)
 
     try:
@@ -71,17 +67,10 @@ if __name__ == "__main__":
         audio_dur = int(sys.argv[3])
         out_name = sys.argv[4]
 
-        # Validating assignment constraints
-        if num_videos <= 10:
-            print("Error: Number of videos (N) must be greater than 10.")
-            sys.exit(1)
-        if audio_dur <= 20:
-            print("Error: Audio duration (Y) must be greater than 20.")
+        # Assignment constraints: N > 10, Y > 20 
+        if num_videos <= 10 or audio_dur <= 20:
             sys.exit(1)
 
         create_mashup(singer_name, num_videos, audio_dur, out_name)
-
-    except ValueError:
-        print("Error: Number of videos and Duration must be integers.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+    except Exception:
+        sys.exit(1)
